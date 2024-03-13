@@ -1,0 +1,1028 @@
+2 rules of Routing: 
+
+Rule1: PING DIKIT: only neighbors ping/connect
+devices on the same wire or vlan! 
+
+Rule2: To PING DIKIT: you need ROUTING!!! 
+
+
+ncpa.cpl  --> Network Connection
+
+
+Task1
+Linux Machine setup: 
+
+root
+C1sc0123
+cat /etc/udev/rules.d/70 --->tab key to populate complete entry
+rm -r /etc/udev/rules.d/70  ---> tab key
+
+It should populate an IP address: 192.168.57.128
+
+--SecureCRT connect via telnet 192.168.57.128 using port#
+
+
+>>> Task2:Give IP address to P1 & P2 via DHCP server on D1/D2 using load balancer. 
+
+
+D1: will give IP .101 - .199
+
+D1
+conf t
+vlan 10
+ name homevlanmar11
+exit
+ip dhcp excluded-add 10.2.1.200 10.2.1.254
+ip dhcp pool vlan10
+ network 10.2.1.0 255.255.255.0
+ default-router 10.2.1.1   
+ domain-name rivanit.com
+ dns-server 8.8.8.8
+ option 150 ip 1.1.1.1
+
+D2: will give IP .200 - .249
+conf t
+vlan 10
+ name homevlanmar11
+exit
+ip dhcp excluded-add 10.2.1.1 10.2.1.199
+ip dhcp pool vlan10
+ network 10.2.1.0 255.255.255.0
+ default-router 10.2.1.2
+ domain-name rivanit.com
+ dns-server 8.8.8.8
+ option 150 ip 1.1.1.1
+
+
+>>> Task3: A1 & A2 hingi vlan 10 and lipat port
+
+A1: 
+conf t
+int e0/0
+ switchport mode access
+ switchport access vlan 10
+ 
+A2: 
+conf t
+int e1/0
+ switchport mode access
+ switchport access vlan 10
+
+TEST: P1 & P2 
+
+P1
+conf t
+int e0/0
+ip add dhcp
+no shut
+
+P2
+conf t
+int e1/0
+ip add dhcp
+no shut
+
+
+
+Notes: 
+#clear ip dhcp binding *
+
+P1#conf t
+Enter configuration commands, one per line.  End with CNTL/Z.
+P1(config)#int e0/0
+P1(config-if)#^Z      
+P1#sh ip int br | ex una
+Interface                  IP-Address      OK? Method Status                Protocol
+Ethernet0/0                10.2.1.102      YES DHCP   up                    up      
+
+P1#conf t               
+Enter configuration commands, one per line.  End with CNTL/Z.
+P1(config)#int e0/0
+P1(config-if)#ip add dhcp
+P1(config-if)#int e0/0^Z 
+P1#sh ip int br | ex una
+Interface                  IP-Address      OK? Method Status                Protocol
+Ethernet0/0                10.2.1.200      YES DHCP   up                    up   
+
+Device ID        Local Intrfce     Holdtme    Capability  Platform  Port ID
+A2               Eth 1/0            153             R S   Linux Uni Eth 1/0
+P2#sh ip int br | ex una
+Interface                  IP-Address      OK? Method Status                Protocol
+Ethernet1/0                10.2.1.101      YES DHCP   up                    up      
+
+P2#sh ip int br | ex una
+Interface                  IP-Address      OK? Method Status                Protocol
+Ethernet1/0                10.2.1.101      YES DHCP   up                    up      
+
+P2#conf t
+Enter configuration commands, one per line.  End with CNTL/Z.
+P2(config)#int e1/0 
+P2(config-if)#ip add dhcp
+P2(config-if)#^Z
+P2#sh ip int br | ex una
+Interface                  IP-Address      OK? Method Status                Protocol
+Ethernet1/0                10.2.1.202      YES DHCP   up                    up      
+
+
+
+===============================
+
+1. DHCP config
+
+conf t
+
+ip dhcp pool vmnet1
+ip dhcp excluded-address 192.168.101.1 192.168.101.100
+ network 192.168.101.0 255.255.255.0
+ default router 192.168.101.8
+ domain name rivanit.com
+ dns server 8.8.8.8
+end
+
+>> DHCP stages
+Discover
+Offer
+Request
+Acknowledge
+
+
+2. SSH config
+
+conf t
+ip domain name rivanit.com
+crypto key generate rsa
+ip ssh version 2
+
+
+3. Network Address Translation (NAT)
+
+conf t
+access-list 1 permit 192.168.101.0 0.0.0.255
+int gi 1
+ip nat outside
+int gi 3
+ip nat inside
+exit
+ip nat inside source list 1 int gi 1 overload
+end
+
+
+>>> BGP <<<
+eBGP
+
+R1
+conf t
+router bgp 1
+ bgp log neighbor-changes
+ network 208.8.8.4 remote-as 45
+ network 207.7.7.2 remote-as 2
+ network 209.9.9.3 remote-as 3
+ network 10.0.0.0 mask 255.255.255.252
+ network 208.7.7.0 mask 255.255.255.0
+ network 208.8.8.0 mask 255.255.255.0
+ network 208.9.9.0 mask 255.255.255.0
+
+ISP1
+conf t
+router bgp 1
+ bgp log neighbor-changes
+ network 24.2.4.2 remote-as 2
+ network 45.4.5.5 remote-as 45
+ network 208.8.8.1 remote-as 1
+ 
+# show ip route connected | inc c
+
+ network 24.2.4.0 remote-as 2
+ network 45.4.5.0 remote-as 45
+ network 208.8.8.0 remote-as 1
+
+Real ISP
+
+ip route 0.0.0.0 0.0.0.0 null 0
+ip route 10.0.0.0 255.0.0.0 208.8.8.1
+
+===============================
+
+BGP, OSPF -- soulmate
+
+command for all BGP routes to single OSPF routes
+
+router ospf 1
+default-information originate
+
+
+Two way route redistribution
+OSPF to EIGRP
+
+conf t
+router eigrp 100
+redistribute ospf 1 metric 1000 100 255 1 1500
+
+
+
+
+### CCNA REFRESHER ### 
+
+==========================================================
+### Rivan CCNA Training EIGRP 64 and 32 bit Routing P2 ###
+==========================================================
+https://www.youtube.com/watch?v=h714k8Ig3CU&t=232s 
+
+11:36 pm 11/03/2024 (EST)
+
+EIGRP
+
+D1#sh ip route | i C
+Codes: L - local, C - connected, S - static, R - RIP, M - mobile, B - BGP
+C        10.1.4.4/30 is directly connected, Ethernet1/1
+C        10.2.1.0/24 is directly connected, Vlan10
+C        10.2.2.0/24 is directly connected, Vlan20
+C        192.168.1.128/27 is directly connected, Vlan200
+
+bit EIGRP (AS) 100
+
+10.1.4.4/30 0.0.0.3 --wildcard mask (4-1)
+10.2.1.0/24 0.0.0.255
+10.2.2.0/24 0.0.0.255
+192.168.1.128/27 0.0.0.31 --- (32-1)
+
+
+D1:
+conf t
+router eigrp biteigrp
+ address-family ipv4 unicast autonomous-system 100
+	network 10.1.4.4 0.0.0.3 
+	network 10.2.1.0 0.0.0.255
+	network 10.2.2.0 0.0.0.255
+	network 192.168.1.128 0.0.0.31 
+	end
+
+
+D2#sh ip route | inc C
+Codes: L - local, C - connected, S - static, R - RIP, M - mobile, B - BGP
+C        10.1.4.8/30 is directly connected, Ethernet1/1
+C        10.2.1.0/24 is directly connected, Vlan10
+C        10.2.2.0/24 is directly connected, Vlan20
+C        192.168.1.128/27 is directly connected, Vlan200
+
+D2:
+conf t
+router eigrp biteigrp
+ address-family ipv4 unicast autonomous-system 100
+	network 10.1.8.4 0.0.0.3 
+	network 10.2.1.0 0.0.0.255
+	network 10.2.2.0 0.0.0.255
+	network 192.168.1.128 0.0.0.31 
+	end
+
+
+R4#sho ip route | i C
+Codes: L - local, C - connected, S - static, R - RIP, M - mobile, B - BGP
+C        10.1.1.8/30 is directly connected, Ethernet1/2
+C        10.1.4.4/30 is directly connected, Ethernet1/0
+C        10.1.4.8/30 is directly connected, Ethernet1/1
+
+r4: 32bit
+
+conf t
+router eigrp 100
+ no auto-summary
+ network 10.1.1.8 0.0.0.3
+ network 10.1.4.4 0.0.0.3
+end
+
+VALIDATION: 
+
+sh ip eigrp neighbors
+sh ip eigrp traffic
+sh ip eigrp topology
+ 
+D1#sh ip eigrp traffic 
+EIGRP-IPv4 VR(biteigrp) Address-Family Traffic Statistics for AS(100)
+  Hellos sent/received: 192/129
+  Updates sent/received: 16/22
+  Queries sent/received: 0/0
+  Replies sent/received: 0/0
+  Acks sent/received: 11/12
+  SIA-Queries sent/received: 0/0
+  SIA-Replies sent/received: 0/0
+  Hello Process ID: 146
+  PDM Process ID: 118
+  Socket Queue: 0/10000/4/0 (current/max/highest/drops)
+  Input Queue: 0/2000/4/0 (current/max/highest/drops)
+
+D1#sh ip eigrp traffic 
+EIGRP-IPv4 VR(biteigrp) Address-Family Traffic Statistics for AS(100)
+  Hellos sent/received: 200/137
+  Updates sent/received: 16/22
+  Queries sent/received: 0/0
+  Replies sent/received: 0/0
+  Acks sent/received: 11/12
+  SIA-Queries sent/received: 0/0
+  SIA-Replies sent/received: 0/0
+  Hello Process ID: 146
+  PDM Process ID: 118
+  Socket Queue: 0/10000/4/0 (current/max/highest/drops)
+  Input Queue: 0/2000/4/0 (current/max/highest/drops)
+
+D1#sh ip eigrp topology 
+EIGRP-IPv4 VR(biteigrp) Topology Table for AS(100)/ID(192.168.1.129)
+Codes: P - Passive, A - Active, U - Update, Q - Query, R - Reply,
+       r - reply Status, s - sia Status 
+
+P 10.1.4.4/30, 1 successors, FD is 281600
+        via Connected, Ethernet1/1
+P 10.2.2.0/24, 1 successors, FD is 2816
+        via Connected, Vlan20
+P 10.1.1.8/30, 1 successors, FD is 307200
+        via 10.1.4.5 (307200/281600), Ethernet1/1
+P 192.168.1.128/27, 1 successors, FD is 2816
+        via Connected, Vlan200
+P 10.2.1.0/24, 1 successors, FD is 2816
+        via Connected, Vlan10
+
+D1#sh ip route eigrp 
+Codes: L - local, C - connected, S - static, R - RIP, M - mobile, B - BGP
+       D - EIGRP, EX - EIGRP external, O - OSPF, IA - OSPF inter area 
+       N1 - OSPF NSSA external type 1, N2 - OSPF NSSA external type 2
+       E1 - OSPF external type 1, E2 - OSPF external type 2
+       i - IS-IS, su - IS-IS summary, L1 - IS-IS level-1, L2 - IS-IS level-2
+       ia - IS-IS inter area, * - candidate default, U - per-user static route
+       o - ODR, P - periodic downloaded static route, H - NHRP, l - LISP
+       + - replicated route, % - next hop override
+
+Gateway of last resort is not set
+
+      10.0.0.0/8 is variably subnetted, 7 subnets, 3 masks
+D        10.1.1.8/30 [90/307200] via 10.1.4.5, 00:04:04, Ethernet1/1
+
+
+D2#sh ip route eigrp 
+Codes: L - local, C - connected, S - static, R - RIP, M - mobile, B - BGP
+       D - EIGRP, EX - EIGRP external, O - OSPF, IA - OSPF inter area 
+       N1 - OSPF NSSA external type 1, N2 - OSPF NSSA external type 2
+       E1 - OSPF external type 1, E2 - OSPF external type 2
+       i - IS-IS, su - IS-IS summary, L1 - IS-IS level-1, L2 - IS-IS level-2
+       ia - IS-IS inter area, * - candidate default, U - per-user static route
+       o - ODR, P - periodic downloaded static route, H - NHRP, l - LISP
+       + - replicated route, % - next hop override
+
+Gateway of last resort is not set
+
+      10.0.0.0/8 is variably subnetted, 8 subnets, 3 masks
+D        10.1.1.8/30 [90/307456] via 192.168.1.129, 00:04:23, Vlan200
+                     [90/307456] via 10.2.2.1, 00:04:23, Vlan20
+                     [90/307456] via 10.2.1.1, 00:04:23, Vlan10
+D        10.1.4.4/30 [90/281856] via 192.168.1.129, 00:05:20, Vlan200
+                     [90/281856] via 10.2.2.1, 00:05:20, Vlan20
+                     [90/281856] via 10.2.1.1, 00:05:20, Vlan10
+
+R4#sh ip route eigrp 
+Codes: L - local, C - connected, S - static, R - RIP, M - mobile, B - BGP
+       D - EIGRP, EX - EIGRP external, O - OSPF, IA - OSPF inter area 
+       N1 - OSPF NSSA external type 1, N2 - OSPF NSSA external type 2
+       E1 - OSPF external type 1, E2 - OSPF external type 2
+       i - IS-IS, su - IS-IS summary, L1 - IS-IS level-1, L2 - IS-IS level-2
+       ia - IS-IS inter area, * - candidate default, U - per-user static route
+       o - ODR, P - periodic downloaded static route, H - NHRP, l - LISP
+       a - application route
+       + - replicated route, % - next hop override
+
+Gateway of last resort is not set
+
+      10.0.0.0/8 is variably subnetted, 8 subnets, 3 masks
+D        10.2.1.0/24 [90/281856] via 10.1.4.6, 00:05:15, Ethernet1/0
+D        10.2.2.0/24 [90/281856] via 10.1.4.6, 00:05:15, Ethernet1/0
+      192.168.1.0/27 is subnetted, 1 subnets
+D        192.168.1.128 [90/281856] via 10.1.4.6, 00:05:15, Ethernet1/0
+
+
+R4#ping 10.2.1.1
+Type escape sequence to abort.
+Sending 5, 100-byte ICMP Echos to 10.2.1.1, timeout is 2 seconds:
+!!!!!
+Success rate is 100 percent (5/5), round-trip min/avg/max = 1/1/1 ms
+R4#ping 10.2.2.2
+Type escape sequence to abort.
+Sending 5, 100-byte ICMP Echos to 10.2.2.2, timeout is 2 seconds:
+!!!!!
+Success rate is 100 percent (5/5), round-trip min/avg/max = 1/1/1 ms
+R4#ping 192.168.1.129
+Type escape sequence to abort.
+Sending 5, 100-byte ICMP Echos to 192.168.1.129, timeout is 2 seconds:
+!!!!!
+Success rate is 100 percent (5/5), round-trip min/avg/max = 1/1/1 ms
+R4#ping 192.168.1.130
+Type escape sequence to abort.
+Sending 5, 100-byte ICMP Echos to 192.168.1.130, timeout is 2 seconds:
+!!!!!
+Success rate is 100 percent (5/5), round-trip min/avg/max = 1/1/2 ms
+R4#ping 192.168.1.131 
+Type escape sequence to abort.
+Sending 5, 100-byte ICMP Echos to 192.168.1.131, timeout is 2 seconds:
+.....
+Success rate is 0 percent (0/5) ----> this is A1 not yet configured with EIGRP
+
+
+
+
+======================================================
+### Rivan CCNA Training Multi Area OSPF Routing P3 ###
+======================================================
+
+https://www.youtube.com/watch?v=0uFb4Ur9SYg
+
+
+Check connected routes
+
+R4#sh ip route | i C       
+Codes: L - local, C - connected, S - static, R - RIP, M - mobile, B - BGP
+C        10.1.1.8/30 is directly connected, Ethernet1/2
+C        10.1.4.4/30 is directly connected, Ethernet1/0
+C        10.1.4.8/30 is directly connected, Ethernet1/1
+
+R3#sh ip route | i C
+Codes: L - local, C - connected, S - static, R - RIP, M - mobile, B - BGP
+C        10.1.1.4/30 is directly connected, Ethernet1/1
+C        10.1.1.8/30 is directly connected, Ethernet1/2
+
+
+R2#sh ip route | i C
+Codes: L - local, C - connected, S - static, R - RIP, M - mobile, B - BGP
+C        10.1.1.0/30 is directly connected, Ethernet1/2
+C        10.1.1.4/30 is directly connected, Ethernet1/1
+
+R1#sh ip route | i C
+Codes: L - local, C - connected, S - static, R - RIP, M - mobile, B - BGP
+C        10.1.1.0/30 is directly connected, Ethernet1/0
+C        207.7.7.0/24 is directly connected, Ethernet1/2
+C        208.8.8.0/24 is directly connected, Ethernet1/1
+C        209.9.9.0/24 is directly connected, Ethernet1/3
+
+
+We need to create loopback0 address, ospf #, router ID. 
+Add network address based on Area
+
+r4: 
+
+conf t
+ int lo0 
+ ip add 4.4.4.4 255.255.255.255
+router ospf 1
+ router-id 4.4.4.4
+ network 10.1.1.8 0.0.0.3 area 34
+ 
+r3: (Backbone)
+
+conf t
+ int lo0 
+ ip add 3.3.3.3 255.255.255.255
+router ospf 1
+ router-id 3.3.3.3
+ network 10.1.1.8 0.0.0.3 area 34
+ network 10.1.1.4 0.0.0.3 area 0
+
+
+r2: 
+
+conf t
+ int lo0 
+ ip add 2.2.2.2 255.255.255.255
+router ospf 1
+ router-id 2.2.2.2
+ network 10.1.1.0 0.0.0.3 area 12
+ network 10.1.1.4 0.0.0.3 area 0
+
+r1: 
+
+conf t
+ int lo0 
+ ip add 1.1.1.1 255.255.255.255
+router ospf 1
+ router-id 1.1.1.1
+ network 10.1.1.0 0.0.0.3 area 12
+
+
+1. Set up r3 first the backbone area.
+ 
+Verification: 
+
+sh ip protocols
+sh ip ospf database
+sh ip ospf neighbors
+sh ip route ospf
+
+
+
+R3#sh ip protocols 
+*** IP Routing is NSF aware ***
+
+Routing Protocol is "application"
+  Sending updates every 0 seconds
+  Invalid after 0 seconds, hold down 0, flushed after 0
+  Outgoing update filter list for all interfaces is not set
+  Incoming update filter list for all interfaces is not set
+  Maximum path: 32
+  Routing for Networks:
+  Routing Information Sources:
+    Gateway         Distance      Last Update
+  Distance: (default is 4)
+
+Routing Protocol is "ospf 1"
+  Outgoing update filter list for all interfaces is not set
+  Incoming update filter list for all interfaces is not set
+  Router ID 3.3.3.3
+  It is an area border router
+  Number of areas in this router is 2. 2 normal 0 stub 0 nssa
+  Maximum path: 4
+  Routing for Networks:
+    10.1.1.4 0.0.0.3 area 0
+    10.1.1.8 0.0.0.3 area 34
+  Routing Information Sources:
+    Gateway         Distance      Last Update
+    2.2.2.2              110      00:02:00
+    10.1.1.5             110  
+
+
+R3#sh ip ospf database 
+
+            OSPF Router with ID (3.3.3.3) (Process ID 1)
+
+                Router Link States (Area 0)
+
+Link ID         ADV Router      Age         Seq#       Checksum Link count
+2.2.2.2         2.2.2.2         166         0x80000002 0x00589C 1
+3.3.3.3         3.3.3.3         163         0x80000004 0x0016D3 1
+
+                Net Link States (Area 0)
+
+Link ID         ADV Router      Age         Seq#       Checksum
+10.1.1.6        3.3.3.3         163         0x80000003 0x0024E4
+
+                Summary Net Link States (Area 0)
+
+Link ID         ADV Router      Age         Seq#       Checksum
+10.1.1.0        2.2.2.2         200         0x80000001 0x00061C
+10.1.1.8        3.3.3.3         320         0x80000001 0x00977E
+
+                Router Link States (Area 34)
+
+Link ID         ADV Router      Age         Seq#       Checksum Link count
+3.3.3.3         3.3.3.3         148         0x80000002 0x006283 1
+4.4.4.4         4.4.4.4         149         0x80000002 0x0021BC 1
+
+                Net Link States (Area 34)
+
+Link ID         ADV Router      Age         Seq#       Checksum
+10.1.1.9        3.3.3.3         148         0x80000001 0x006E91
+
+                Summary Net Link States (Area 34)
+
+Link ID         ADV Router      Age         Seq#       Checksum
+10.1.1.0        3.3.3.3         163         0x80000001 0x004CC7
+10.1.1.4        3.3.3.3         310         0x80000001 0x00BF5A
+
+R3#sh ip ospf neighbor 
+
+Neighbor ID     Pri   State           Dead Time   Address         Interface
+2.2.2.2           1   FULL/BDR        00:00:32    10.1.1.5        Ethernet1/1
+4.4.4.4           1   FULL/BDR        00:00:36    10.1.1.10       Ethernet1/2
+
+
+R3#sh ip route ospf
+Codes: L - local, C - connected, S - static, R - RIP, M - mobile, B - BGP
+       D - EIGRP, EX - EIGRP external, O - OSPF, IA - OSPF inter area 
+       N1 - OSPF NSSA external type 1, N2 - OSPF NSSA external type 2
+       E1 - OSPF external type 1, E2 - OSPF external type 2
+       i - IS-IS, su - IS-IS summary, L1 - IS-IS level-1, L2 - IS-IS level-2
+       ia - IS-IS inter area, * - candidate default, U - per-user static route
+       o - ODR, P - periodic downloaded static route, H - NHRP, l - LISP
+       a - application route
+       + - replicated route, % - next hop override
+
+Gateway of last resort is not set
+
+      10.0.0.0/8 is variably subnetted, 5 subnets, 2 masks
+O IA     10.1.1.0/30 [110/20] via 10.1.1.5, 00:03:47, Ethernet1/1
+
+Ping R1 from r4
+
+Success rate is 100 percent (5/5), round-trip min/avg/max = 4/4/5 ms
+R4#ping 10.1.1.1 
+Type escape sequence to abort.
+Sending 5, 100-byte ICMP Echos to 10.1.1.1, timeout is 2 seconds:
+!!!!!
+Success rate is 100 percent (5/5), round-trip min/avg/max = 1/1/1 ms
+
+
+================================
+#### CCNA eBGP and iBGP P4 ####
+================================
+
+Uses AS #
+
+R1 BGP: 
+
+R1#bp
+Interface                  IP-Address      OK? Method Status                Protocol
+Ethernet1/0                10.1.1.1        YES NVRAM  up                    up      
+Ethernet1/1                208.8.8.1       YES NVRAM  up                    up      
+Ethernet1/2                207.7.7.1       YES NVRAM  up                    up      
+Ethernet1/3                209.9.9.1       YES NVRAM  up                    up      
+Loopback0                  1.1.1.1         YES manual up                    up     
+
+R1#sh ip route | i C
+Codes: L - local, C - connected, S - static, R - RIP, M - mobile, B - BGP
+C        1.1.1.1 is directly connected, Loopback0
+C        10.1.1.0/30 is directly connected, Ethernet1/0
+C        207.7.7.0/24 is directly connected, Ethernet1/2
+C        208.8.8.0/24 is directly connected, Ethernet1/1
+C        209.9.9.0/24 is directly connected, Ethernet1/3
+
+conf t
+router bgp 1
+ bgp log-neighbor-changes
+ neighbor 208.8.8.4 remote-as 45
+ neighbor 207.7.7.2 remote-as 2
+ neighbor 209.9.9.3 remote-as 3
+ network 10.0.0.0 mask 255.255.255.252
+ network 208.8.8.0 mask 255.255.255.0
+ network 207.7.7.0 mask 255.255.255.0
+ network 209.9.9.0 mask 255.255.255.0
+
+ISP1
+
+ISP1#bp
+Interface                  IP-Address      OK? Method Status                Protocol
+Ethernet1/1                24.2.4.4        YES NVRAM  up                    up      
+Ethernet1/2                45.4.5.4        YES NVRAM  up                    up      
+Ethernet1/3                208.8.8.4       YES NVRAM  up                    up      
+Loopback0                  44.44.44.44     YES NVRAM  up                    up   
+
+ISP1#sh ip route | i C
+Codes: L - local, C - connected, S - static, R - RIP, M - mobile, B - BGP
+C        24.2.4.0/24 is directly connected, Ethernet1/1
+C        44.44.44.44 is directly connected, Loopback0
+C        45.4.5.0/24 is directly connected, Ethernet1/2
+C        208.8.8.0/24 is directly connected, Ethernet1/3
+
+
+conf t
+router bgp 45
+ bgp log-neighbor-changes
+ neighbor 208.8.8.1 remote-as 1
+ neighbor 24.2.4.2 remote-as 2
+ neighbor 45.4.5.5  remote-as 45
+ network 24.2.4.0 mask 255.255.255.252
+ network 208.8.8.0 mask 255.255.255.0
+ network 45.4.5.0 mask 255.255.255.0
+ network 44.44.44.44 mask 255.255.255.255
+ !pretend to be REAL ISP:
+ network 0.0.0.0
+ ip route 0.0.0.0 0.0.0.0 null 0
+ ip route 10.0.0.0 255.0.0.0 208.8.8.1
+
+
+ISP2
+
+ISP2#sh ip route connected | i C
+Codes: L - local, C - connected, S - static, R - RIP, M - mobile, B - BGP
+C        22.22.22.22 is directly connected, Loopback0
+C        24.2.4.0/24 is directly connected, Ethernet1/1
+C        25.2.5.0/24 is directly connected, Ethernet0/2
+C        32.3.2.0/24 is directly connected, Ethernet1/2
+C        207.7.7.0/24 is directly connected, Ethernet1/3
+
+conf t
+router bgp 2
+ bgp log-neighbor-changes
+ neighbor 207.7.7.1 remote-as 1
+ neighbor 24.2.4.4 remote-as 45
+ neighbor 32.3.2.3 remote-as 3
+ neighbor 25.2.5.5 remote-as 45
+ network 22.22.22.22 mask 255.255.255.255
+ network 24.2.4.0 mask 255.255.255.252
+ network 25.2.5.0 mask 255.255.255.0
+ network 32.3.2.0 mask 255.255.255.0
+ network 207.7.7.0 mask 255.255.255.0
+ network 0.0.0.0
+ ip route 0.0.0.0 0.0.0.0 null 0
+ ip route 10.0.0.0 255.0.0.0 207.7.7.1
+
+Neighbor        V           AS MsgRcvd MsgSent   TblVer  InQ OutQ Up/Down  State/PfxRcd
+24.2.4.4        4           45      20      18       15    0    0 00:10:44       11
+25.2.5.5        4           45      18      18       15    0    0 00:10:10       10
+32.3.2.3        4            3       0       0        1    0    0 never    Idle
+207.7.7.1       4            1      21      18       15    0    0 00:10:46       10
+
+ISP2(config-router)#neighbor 32.3.2.3 remote-as 3
+
+
+Neighbor        V           AS MsgRcvd MsgSent   TblVer  InQ OutQ Up/Down  State/PfxRcd
+24.2.4.4        4           45      34      32       16    0    0 00:22:36       11
+25.2.5.5        4           45      32      32       16    0    0 00:22:02       10
+32.3.2.3        4            3      18      18       16    0    0 00:06:38       12
+207.7.7.1       4            1      34      32       16    0    0 00:22:38       10
+ISP2#
+
+
+ISP3
+ISP3#sho ip route connected | i C
+Codes: L - local, C - connected, S - static, R - RIP, M - mobile, B - BGP
+C        32.3.2.0/24 is directly connected, Ethernet1/2
+C        33.33.33.33 is directly connected, Loopback0
+C        35.3.5.0/24 is directly connected, Ethernet1/1
+C        209.9.9.0/24 is directly connected, Ethernet1/3
+
+
+I3
+
+conf t
+router bgp 3
+ bgp log-neighbor-changes
+ neighbor 209.9.9.1 remote-as 1
+ neighbor 35.3.5.5 remote-as 45
+ neighbor 32.3.2.2 remote-as 2
+ network 33.33.33.33 mask 255.255.255.255
+ network 32.3.2.0 mask 255.255.255.0
+ network 35.3.5.0 mask 255.255.255.0
+ network 209.9.9.0 mask 255.255.255.0
+ network 0.0.0.0
+ ip route 0.0.0.0 0.0.0.0 null 0
+ ip route 10.0.0.0 255.0.0.0 209.9.9.1
+
+Neighbor        V           AS MsgRcvd MsgSent   TblVer  InQ OutQ Up/Down  State/PfxRcd
+32.3.2.2        4            2      15      15       21    0    0 00:03:38       12
+35.3.5.5        4           45      16      16       21    0    0 00:03:41       11
+209.9.9.1       4            1      30      27       21    0    0 00:19:15       11
+ISP3#
+
+ISP4#sh ip route con  
+ISP4#sh ip route connected | i C
+Codes: L - local, C - connected, S - static, R - RIP, M - mobile, B - BGP
+C        25.2.5.0/24 is directly connected, Ethernet0/2
+C        35.3.5.0/24 is directly connected, Ethernet0/3
+C        45.4.5.0/24 is directly connected, Ethernet0/1
+C        55.55.55.55 is directly connected, Loopback0
+
+I4
+conf t
+int lo 8
+ ip add 8.8.8.8 255.255.255.255
+router bgp 45
+ bgp log-neighbor-changes
+ neighbor 45.4.5.4 remote-as 45
+ neighbor 35.3.5.3 remote-as 3
+ neighbor 25.2.5.2 remote-as 2
+ network 55.55.55.55 mask 255.255.255.255
+ network 8.8.8.8 mask 255.255.255.255
+ network 25.2.5.0 mask 255.255.255.0
+ network 35.3.5.0 mask 255.255.255.0
+ network 45.4.5.0 mask 255.255.255.0
+end
+
+ISP4#sh ip route connected | i C
+Codes: L - local, C - connected, S - static, R - RIP, M - mobile, B - BGP
+C        8.8.8.8 is directly connected, Loopback8
+C        25.2.5.0/24 is directly connected, Ethernet0/2
+C        35.3.5.0/24 is directly connected, Ethernet0/3
+C        45.4.5.0/24 is directly connected, Ethernet0/1
+C        55.55.55.55 is directly connected, Loopback0
+
+
+Neighbor        V           AS MsgRcvd MsgSent   TblVer  InQ OutQ Up/Down  State/PfxRcd
+25.2.5.2        4            2      33      34       16    0    0 00:23:41        8
+35.3.5.3        4            3      21      21       16    0    0 00:08:21        8
+45.4.5.4        4           45      33      32       16    0    0 00:23:45        8
+ISP4#
+
+Validation: 
+sh ip bgp summ
+sh ip bgp neighbors 
+sh ip bgp route
+
+
+R1#sh ip bgp summ
+BGP router identifier 1.1.1.1, local AS number 1
+BGP table version is 15, main routing table version 15
+13 network entries using 1820 bytes of memory
+36 path entries using 2736 bytes of memory
+11/5 BGP path/bestpath attribute entries using 1540 bytes of memory
+9 BGP AS-PATH entries using 216 bytes of memory
+0 BGP route-map cache entries using 0 bytes of memory
+0 BGP filter-list cache entries using 0 bytes of memory
+BGP using 6312 total bytes of memory
+BGP activity 13/0 prefixes, 36/0 paths, scan interval 60 secs
+
+Neighbor        V           AS MsgRcvd MsgSent   TblVer  InQ OutQ Up/Down  State/PfxRcd
+207.7.7.2       4            2      34      36       15    0    0 00:24:44       11
+208.8.8.4       4           45      36      36       15    0    0 00:27:10       11
+209.9.9.3       4            3      33      36       15    0    0 00:24:22       11
+R1#          3       6      12       14    0    0 00:02:49        5
+
+
+R1#sh ip route bgp
+Codes: L - local, C - connected, S - static, R - RIP, M - mobile, B - BGP
+       D - EIGRP, EX - EIGRP external, O - OSPF, IA - OSPF inter area 
+       N1 - OSPF NSSA external type 1, N2 - OSPF NSSA external type 2
+       E1 - OSPF external type 1, E2 - OSPF external type 2
+       i - IS-IS, su - IS-IS summary, L1 - IS-IS level-1, L2 - IS-IS level-2
+       ia - IS-IS inter area, * - candidate default, U - per-user static route
+       o - ODR, P - periodic downloaded static route, H - NHRP, l - LISP
+       a - application route
+       + - replicated route, % - next hop override
+
+Gateway of last resort is 208.8.8.4 to network 0.0.0.0
+
+B*    0.0.0.0/0 [20/0] via 208.8.8.4, 00:06:04
+      8.0.0.0/32 is subnetted, 1 subnets
+B        8.8.8.8 [20/0] via 208.8.8.4, 00:02:04
+      22.0.0.0/32 is subnetted, 1 subnets
+B        22.22.22.22 [20/0] via 207.7.7.2, 00:03:39
+      25.0.0.0/24 is subnetted, 1 subnets
+B        25.2.5.0 [20/0] via 207.7.7.2, 00:03:39
+      32.0.0.0/24 is subnetted, 1 subnets
+B        32.3.2.0 [20/0] via 207.7.7.2, 00:03:39
+      33.0.0.0/32 is subnetted, 1 subnets
+B        33.33.33.33 [20/0] via 209.9.9.3, 00:03:16
+      35.0.0.0/24 is subnetted, 1 subnets
+B        35.3.5.0 [20/0] via 209.9.9.3, 00:03:16
+      44.0.0.0/32 is subnetted, 1 subnets
+B        44.44.44.44 [20/0] via 208.8.8.4, 00:06:04
+      45.0.0.0/24 is subnetted, 1 subnets
+B        45.4.5.0 [20/0] via 208.8.8.4, 00:05:34
+      55.0.0.0/32 is subnetted, 1 subnets
+B        55.55.55.55 [20/0] via 208.8.8.4, 00:02:39
+
+
+
+### Rivan CCNA Route Redistribution and Originate P5 ###
+
+R2#ping 8.8.8.8  
+Type escape sequence to abort.
+Sending 5, 100-byte ICMP Echos to 8.8.8.8, timeout is 2 seconds:
+.....
+Success rate is 0 percent (0/5)
+R2#
+
+--> unable to ping 8.8.8.8 because they are not sharing routes
+r2 is on OSPF work 8.8.8.8 is on BGP (ISP4)
+
+
+r1
+conf t
+ router ospf 1
+ default-information originate
+
+
+R4#sh ip route ospf
+Codes: L - local, C - connected, S - static, R - RIP, M - mobile, B - BGP
+       D - EIGRP, EX - EIGRP external, O - OSPF, IA - OSPF inter area 
+       N1 - OSPF NSSA external type 1, N2 - OSPF NSSA external type 2
+       E1 - OSPF external type 1, E2 - OSPF external type 2
+       i - IS-IS, su - IS-IS summary, L1 - IS-IS level-1, L2 - IS-IS level-2
+       ia - IS-IS inter area, * - candidate default, U - per-user static route
+       o - ODR, P - periodic downloaded static route, H - NHRP, l - LISP
+       a - application route
+       + - replicated route, % - next hop override
+
+Gateway of last resort is 10.1.1.9 to network 0.0.0.0
+
+O*E2  0.0.0.0/0 [110/1] via 10.1.1.9, 00:00:30, Ethernet1/2
+      10.0.0.0/8 is variably subnetted, 10 subnets, 3 masks
+O IA     10.1.1.0/30 [110/30] via 10.1.1.9, 06:28:23, Ethernet1/2
+O IA     10.1.1.4/30 [110/20] via 10.1.1.9, 06:28:23, Ethernet1/2
+
+
+2 way route redistribution: 
+
+R4#sh int e1/0 ---> interface facing EIGRP
+Ethernet1/0 is up, line protocol is up 
+  Hardware is AmdP2, address is aabb.cc00.0901 (bia aabb.cc00.0901)
+  Internet address is 10.1.4.5/30
+  MTU 1500 bytes, BW 10000 Kbit/sec, DLY 1000 usec, 
+     reliability 255/255, txload 1/255, rxload 1/255
+
+R4#sh ip eigrp ne
+EIGRP-IPv4 Neighbors for AS(100)
+H   Address                 Interface              Hold Uptime   SRTT   RTO  Q  Seq
+                                                   (sec)         (ms)       Cnt Num
+0   10.1.4.6                Et1/0                    12 07:54:38 1598  5000  0  12
+
+conf t
+ router eigrp 100
+ redistribute ospf 1 metric 10000 100 255 1 1500
+
+0   10.1.4.6                Et1/0                    12 07:54:38 1598  5000  0  12
+R4#conf t
+Enter configuration commands, one per line.  End with CNTL/Z.
+R4(config)#router ei
+R4(config)#router eigrp 100 
+R4(config-router)#redis
+R4(config-router)#redistribute ospf 1 ?
+  match      Redistribution of OSPF routes
+  metric     Metric for redistributed routes
+  route-map  Route map reference
+  <cr>
+
+R4(config-router)#redistribute ospf 1 metric 1000 100 255 1 1500
+R4(config-router)#
+
+OSPF will get in EIGRP
+
+
+D1#sh ip eigrp neighbors 
+EIGRP-IPv4 VR(biteigrp) Address-Family Neighbors for AS(100)
+H   Address                 Interface              Hold Uptime   SRTT   RTO  Q  Seq
+                                                   (sec)         (ms)       Cnt Num
+3   10.1.4.5                Et1/1                    11 00:48:18    5   100  0  3
+2   192.168.1.130           Vl200                    11 00:49:15    8   100  0  10
+1   10.2.2.2                Vl20                     14 00:49:15    9   100  0  11
+0   10.2.1.2                Vl10                     13 00:49:15    9   100  0  12
+
+D1#sh ip route eigrp 
+Codes: L - local, C - connected, S - static, R - RIP, M - mobile, B - BGP
+       D - EIGRP, EX - EIGRP external, O - OSPF, IA - OSPF inter area 
+       N1 - OSPF NSSA external type 1, N2 - OSPF NSSA external type 2
+       E1 - OSPF external type 1, E2 - OSPF external type 2
+       i - IS-IS, su - IS-IS summary, L1 - IS-IS level-1, L2 - IS-IS level-2
+       ia - IS-IS inter area, * - candidate default, U - per-user static route
+       o - ODR, P - periodic downloaded static route, H - NHRP, l - LISP
+       + - replicated route, % - next hop override
+
+Gateway of last resort is 10.1.4.5 to network 0.0.0.0
+
+D*EX  0.0.0.0/0 [170/2611200] via 10.1.4.5, 00:02:04, Ethernet1/1
+      10.0.0.0/8 is variably subnetted, 9 subnets, 3 masks
+D EX     10.1.1.0/30 [170/2611200] via 10.1.4.5, 00:02:04, Ethernet1/1
+D EX     10.1.1.4/30 [170/2611200] via 10.1.4.5, 00:02:04, Ethernet1/1
+D        10.1.1.8/30 [90/307200] via 10.1.4.5, 08:01:24, Ethernet1/1
+
+
+r4: 
+
+conf t
+ ospf 1
+ redistribute eigrp 100 subnets
+
+R3#sh ip route ospf
+Codes: L - local, C - connected, S - static, R - RIP, M - mobile, B - BGP
+       D - EIGRP, EX - EIGRP external, O - OSPF, IA - OSPF inter area 
+       N1 - OSPF NSSA external type 1, N2 - OSPF NSSA external type 2
+       E1 - OSPF external type 1, E2 - OSPF external type 2
+       i - IS-IS, su - IS-IS summary, L1 - IS-IS level-1, L2 - IS-IS level-2
+       ia - IS-IS inter area, * - candidate default, U - per-user static route
+       o - ODR, P - periodic downloaded static route, H - NHRP, l - LISP
+       a - application route
+       + - replicated route, % - next hop override
+
+Gateway of last resort is 10.1.1.5 to network 0.0.0.0
+
+O*E2  0.0.0.0/0 [110/1] via 10.1.1.5, 00:23:29, Ethernet1/1
+      10.0.0.0/8 is variably subnetted, 8 subnets, 3 masks
+O IA     10.1.1.0/30 [110/20] via 10.1.1.5, 00:47:14, Ethernet1/1
+O E2     10.1.4.4/30 [110/20] via 10.1.1.10, 00:00:38, Ethernet1/2
+O E2     10.2.1.0/24 [110/20] via 10.1.1.10, 00:00:38, Ethernet1/2
+O E2     10.2.2.0/24 [110/20] via 10.1.1.10, 00:00:38, Ethernet1/2
+      192.168.1.0/27 is subnetted, 1 subnets
+O E2     192.168.1.128 [110/20] via 10.1.1.10, 00:00:38, Ethernet1/2
+
+
+R1#sh ip route ospf     
+Codes: L - local, C - connected, S - static, R - RIP, M - mobile, B - BGP
+       D - EIGRP, EX - EIGRP external, O - OSPF, IA - OSPF inter area 
+       N1 - OSPF NSSA external type 1, N2 - OSPF NSSA external type 2
+       E1 - OSPF external type 1, E2 - OSPF external type 2
+       i - IS-IS, su - IS-IS summary, L1 - IS-IS level-1, L2 - IS-IS level-2
+       ia - IS-IS inter area, * - candidate default, U - per-user static route
+       o - ODR, P - periodic downloaded static route, H - NHRP, l - LISP
+       a - application route
+       + - replicated route, % - next hop override
+
+Gateway of last resort is 208.8.8.4 to network 0.0.0.0
+
+      10.0.0.0/8 is variably subnetted, 7 subnets, 3 masks
+O IA     10.1.1.4/30 [110/20] via 10.1.1.2, 00:47:07, Ethernet1/0
+O IA     10.1.1.8/30 [110/30] via 10.1.1.2, 00:47:07, Ethernet1/0
+O E2     10.1.4.4/30 [110/20] via 10.1.1.2, 00:01:52, Ethernet1/0
+O E2     10.2.1.0/24 [110/20] via 10.1.1.2, 00:01:52, Ethernet1/0
+O E2     10.2.2.0/24 [110/20] via 10.1.1.2, 00:01:52, Ethernet1/0
+      192.168.1.0/27 is subnetted, 1 subnets
+O E2     192.168.1.128 [110/20] via 10.1.1.2, 00:01:52, Ethernet1/0
+
+R1#ping 8.8.8.8 
+Type escape sequence to abort.
+Sending 5, 100-byte ICMP Echos to 8.8.8.8, timeout is 2 seconds:
+!!!!!
+Success rate is 100 percent (5/5), round-trip min/avg/max = 1/1/1 ms
+
+
+
+
+
+
+
+
+
+
+
