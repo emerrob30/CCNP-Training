@@ -265,7 +265,19 @@ conf t
  end
 wr
 
+@@static default routing in P1:
 
+P1:
+config t
+ip route 0.0.0.0 0.0.0.0 10.2.1.1
+
+
+@@static default routing in p2:
+p2:
+config t
+ip route 0.0.0.0 0.0.0.0 10.2.1.2
+
+Test ping 8.8.8.8
 
 
 
